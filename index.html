@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K617 Fizz Control</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --text: #1d2026; --muted: #5f6672;
+    --border: #d9dce1; --accent: #d6283a; --accent-text: #fff;
+    --key: #eceef1; --ok: #1e7f45; --err: #c0262f; --code: #f0f1f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171b; --card: #1e2126; --text: #e6e8eb; --muted: #9aa1ab;
+      --border: #30343b; --accent: #ef4456; --key: #2a2e35; --ok: #4cc27f;
+      --err: #ff6b73; --code: #121418;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Ubuntu, sans-serif; }
+  header { padding: 20px 16px 8px; max-width: 1000px; margin: 0 auto; }
+  h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { max-width: 1000px; margin: 0 auto; padding: 8px 16px 40px;
+    display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  section { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  section.wide { grid-column: 1 / -1; }
+  h2 { margin: 0 0 12px; font-size: 16px; }
+  h2 small { font-weight: normal; color: var(--muted); }
+  label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; }
+  label span.v { min-width: 2ch; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { flex: 1; }
+  input[type=text], input[type=number], select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px; font: inherit; min-width: 0; }
+  input[type=color] { width: 48px; height: 32px; border: 1px solid var(--border); border-radius: 6px; padding: 2px; background: var(--bg); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  button { font: inherit; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--key); color: var(--text); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.danger { color: var(--err); border-color: var(--err); background: transparent; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .note { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+  .swatches { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .swatches button { width: 26px; height: 26px; padding: 0; border-radius: 50%; }
+  /* keyboard */
+  .kbd-wrap { overflow-x: auto; }
+  .kbd { display: grid; gap: 4px; min-width: 620px; }
+  .kbd .r { display: flex; gap: 4px; }
+  .key { flex: 0 0 auto; height: 42px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--key); color: var(--text); font-size: 12px; padding: 0;
+    display: flex; align-items: flex-end; justify-content: flex-start; padding: 4px 6px; }
+  .key.set { color: #000; text-shadow: 0 0 2px #fff; }
+  #out { background: var(--code); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px; white-space: pre-wrap; word-break: break-word; font: 13px/1.4 ui-monospace, monospace;
+    min-height: 60px; max-height: 300px; overflow: auto; margin: 0; }
+  #status.ok { color: var(--ok); } #status.err { color: var(--err); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Redragon K617 Fizz</h1>
+  <p>Changes are sent with fizzctl when you press Apply. Most are saved on the keyboard.</p>
+</header>
+<main>
+  <section>
+    <h2>Solid colour</h2>
+    <label>Colour <input type="color" id="rgb-color" value="#ff0000"></label>
+    <label>Brightness <input type="range" id="rgb-b" min="0" max="4" value="4"><span class="v"></span></label>
+    <div class="row"><button class="primary" data-act="rgb">Apply</button></div>
+  </section>
+
+  <section>
+    <h2>Effect</h2>
+    <label>Effect <select id="fx-name"></select></label>
+    <label>Colour <span><input type="checkbox" id="fx-usecolor"> <input type="color" id="fx-color" value="#00ffff"></span></label>
+    <label>Speed <input type="range" id="fx-s" min="1" max="5" value="4"><span class="v"></span></label>
+    <label>Brightness <input type="range" id="fx-b" min="0" max="4" value="3"><span class="v"></span></label>
+    <div class="row"><button class="primary" data-act="effect">Apply</button></div>
+    <p class="note">Tick the box to override the effect's default colour.</p>
+  </section>
+
+  <section class="wide">
+    <h2>Per-key colours</h2>
+    <label style="justify-content:flex-start">Brush <input type="color" id="brush" value="#ff0000">
+      <span class="note" style="margin:0">Click keys to colour them. Right-click clears a key.</span></label>
+    <div class="swatches" id="swatches"></div>
+    <div class="kbd-wrap"><div class="kbd" id="kbd"></div></div>
+    <div class="row">
+      <button class="primary" data-act="paint">Apply</button>
+      <button id="fill-all">Fill all with brush</button>
+      <button id="clear-keys">Clear</button>
+    </div>
+    <p class="note">Only coloured keys are sent.</p>
+  </section>
+
+  <section>
+    <h2>Animation <small>(stops when unplugged)</small></h2>
+    <label>Animation <select id="an-name"></select></label>
+    <label>Colour <input type="color" id="an-color" value="#ffff00"></label>
+    <label>Speed <input type="range" id="an-s" min="0.25" max="4" step="0.25" value="1"><span class="v"></span></label>
+    <label>FPS <input type="range" id="an-f" min="5" max="60" step="5" value="30"><span class="v"></span></label>
+    <div class="row">
+      <button class="primary" data-act="animate">Start</button>
+      <button data-act="animate-stop">Stop</button>
+    </div>
+    <p class="note">Runs in the background on this computer. Stop it before applying other lighting.</p>
+  </section>
+
+  <section>
+    <h2>Macro</h2>
+    <label>Key <select id="mc-key"></select></label>
+    <label>Types <input type="text" id="mc-text" maxlength="200" placeholder="hello"></label>
+    <label>Delay (ms) <input type="number" id="mc-delay" min="0" max="5000" value="30" style="width:90px"></label>
+    <label>Repeat <input type="number" id="mc-cycles" min="1" max="255" value="1" style="width:90px"></label>
+    <label style="justify-content:flex-start"><input type="checkbox" id="mc-until"> Repeat while key is held</label>
+    <div class="row">
+      <button class="primary" data-act="macro">Bind</button>
+      <button data-act="macro-read">Show macros</button>
+      <button class="danger" data-act="macro-remove-all">Remove all</button>
+    </div>
+    <p class="note">Letters type lowercase. The key loses its normal function.</p>
+  </section>
+
+  <section>
+    <h2>Factory reset</h2>
+    <p class="note" style="margin-top:0">Restores the stock keymap and lighting, and deletes all macros.</p>
+    <div class="row"><button class="danger" data-act="restore">Restore factory settings</button></div>
+  </section>
+
+  <section class="wide">
+    <h2>Output <small id="status"></small></h2>
+    <pre id="out">Ready.</pre>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const hex = (id) => $(id).value.replace("#", "");
+
+// 60% layout: [name, width in key units]
+const LAYOUT = [
+  [["Esc",1],["1",1],["2",1],["3",1],["4",1],["5",1],["6",1],["7",1],["8",1],["9",1],["0",1],["-",1],["=",1],["Bksp",2]],
+  [["Tab",1.5],["Q",1],["W",1],["E",1],["R",1],["T",1],["Y",1],["U",1],["I",1],["O",1],["P",1],["[",1],["]",1],["\\",1.5]],
+  [["CapsLk",1.75],["A",1],["S",1],["D",1],["F",1],["G",1],["H",1],["J",1],["K",1],["L",1],[";",1],["'",1],["Enter",2.25]],
+  [["LShift",2.25],["Z",1],["X",1],["C",1],["V",1],["B",1],["N",1],["M",1],[",",1],[".",1],["/",1],["RShift",2.75]],
+  [["LCtrl",1.25],["LWin",1.25],["LAlt",1.25],["Space",6.25],["RAlt",1.25],["Fn",1.25],["Menu",1.25],["RCtrl",1.25]],
+];
+const UNIT = 42, GAP = 4;
+const painted = {};
+
+function drawKeyboard(validKeys) {
+  const kbd = $("kbd");
+  for (const row of LAYOUT) {
+    const r = document.createElement("div"); r.className = "r";
+    for (const [name, w] of row) {
+      const b = document.createElement("button");
+      b.className = "key"; b.textContent = name; b.dataset.key = name;
+      b.style.width = (w * UNIT + (w - 1) * GAP) + "px";
+      if (!validKeys.includes(name)) { b.disabled = true; b.title = "not addressable"; }
+      b.onclick = () => setKey(name, hex("brush"));
+      b.oncontextmenu = (e) => { e.preventDefault(); setKey(name, null); };
+      r.appendChild(b);
+    }
+    kbd.appendChild(r);
+  }
+}
+function setKey(name, c) {
+  const b = document.querySelector(`.key[data-key="${CSS.escape(name)}"]`);
+  if (!b || b.disabled) return;
+  if (c) { painted[name] = c; b.style.background = "#" + c; b.classList.add("set"); }
+  else { delete painted[name]; b.style.background = ""; b.classList.remove("set"); }
+}
+$("fill-all").onclick = () => document.querySelectorAll(".key:not(:disabled)").forEach(b => setKey(b.dataset.key, hex("brush")));
+$("clear-keys").onclick = () => Object.keys(painted).forEach(k => setKey(k, null));
+
+for (const c of ["ff0000","ff8000","ffff00","00ff00","00ffff","0000ff","8000ff","ff00ff","ffffff","000000"]) {
+  const s = document.createElement("button");
+  s.style.background = "#" + c; s.title = "#" + c;
+  s.onclick = () => { $("brush").value = "#" + c; };
+  $("swatches").appendChild(s);
+}
+
+// live value labels next to sliders
+document.querySelectorAll("input[type=range]").forEach(r => {
+  const v = r.nextElementSibling;
+  const upd = () => { v.textContent = r.value; };
+  r.addEventListener("input", upd); upd();
+});
+
+const BODY = {
+  "rgb": () => ({ color: hex("rgb-color"), brightness: $("rgb-b").value }),
+  "effect": () => ({ name: $("fx-name").value, color: $("fx-usecolor").checked ? hex("fx-color") : "",
+                     speed: $("fx-s").value, brightness: $("fx-b").value }),
+  "paint": () => {
+    if (!Object.keys(painted).length) throw new Error("Colour at least one key first.");
+    return { keys: painted };
+  },
+  "animate": () => ({ name: $("an-name").value, color: hex("an-color"), speed: $("an-s").value, fps: $("an-f").value }),
+  "animate-stop": () => ({}),
+  "macro": () => {
+    if (!$("mc-text").value) throw new Error("Enter the text the macro should type.");
+    return { key: $("mc-key").value, text: $("mc-text").value, delay_ms: $("mc-delay").value,
+             cycles: $("mc-cycles").value, until_released: $("mc-until").checked };
+  },
+  "macro-read": () => ({}),
+  "macro-remove-all": () => {
+    if (!confirm("Remove every macro from the keyboard?")) return null;
+    return {};
+  },
+  "restore": () => {
+    if (!confirm("Restore factory keymap and lighting, and delete all macros?")) return null;
+    return {};
+  },
+};
+
+function show(ok, text) {
+  $("status").textContent = ok ? "ok" : "failed";
+  $("status").className = ok ? "ok" : "err";
+  $("out").textContent = text;
+}
+
+let busy = false;
+async function act(action, btn) {
+  if (busy) return;
+  let body;
+  try { body = BODY[action](); } catch (e) { return show(false, e.message); }
+  if (body === null) return;
+  busy = true;
+  document.querySelectorAll("button[data-act]").forEach(b => b.disabled = true);
+  $("status").textContent = "working…"; $("status").className = "";
+  try {
+    const res = await fetch("/api/" + action, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await res.json();
+    if (j.error) show(false, j.error);
+    else show(j.code === 0, `$ ${j.cmd}\n${j.stdout}${j.stderr}${j.hint ? "\n→ " + j.hint : ""}`.trim());
+  } catch (e) {
+    show(false, "Could not reach the server. Is server.py still running?\n" + e);
+  } finally {
+    busy = false;
+    document.querySelectorAll("button[data-act]").forEach(b => b.disabled = false);
+  }
+}
+document.querySelectorAll("button[data-act]").forEach(b => b.onclick = () => act(b.dataset.act, b));
+
+function fill(sel, items) {
+  for (const it of items) { const o = document.createElement("option"); o.value = o.textContent = it; sel.appendChild(o); }
+}
+
+fetch("/api/info").then(r => r.json()).then(info => {
+  fill($("fx-name"), info.effects.map(e => e[0]));
+  const defaults = Object.fromEntries(info.effects.map(e => [e[0], e]));
+  $("fx-name").onchange = () => {
+    const [, s, b] = defaults[$("fx-name").value];
+    if (s) $("fx-s").value = s; $("fx-b").value = b;
+    $("fx-s").dispatchEvent(new Event("input")); $("fx-b").dispatchEvent(new Event("input"));
+  };
+  $("fx-name").value = "rainbow"; $("fx-name").onchange();
+  fill($("an-name"), info.animations);
+  fill($("mc-key"), info.macro_keys.filter(k => k !== "CapsLock" && k !== "Backspace"));
+  $("mc-key").value = "CapsLk";
+  drawKeyboard(info.paint_keys);
+}).catch(e => show(false, "Could not load key lists: " + e));
+</script>
+</body>
+</html>

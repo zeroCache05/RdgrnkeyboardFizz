@@ -1,0 +1,4 @@
+# Python packages for the fizzctl GUI. Install with ./setup.sh
+# server.py itself uses only the Python standard library (Python >= 3.14).
+fizzctl==0.5.1
+hidapi>=0.15.0
